@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<!--
+To change this license header, choose License Headers in Project Properties.
+To change this template file, choose Tools | Templates
+and open the template in the editor.
+-->
+<html>
+    <head>
+        <title>The Game Project</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+            /*            body {
+                            background-image: url("background.jpg");
+                        }*/
+        </style>
+
+    </head>
+
+    <body>
+        <canvas id="ctx" width="1350" height="620" style="border:1px solid #000000;"></canvas>
+
+        <script>
+            var ctx = document.getElementById("ctx").getContext("2d");
+            ctx.font = '30px Arial';
+            var Width = 1350;
+            var Height = 620;
+            var timeTheGameStarted = Date.now();
+            var frameCount = 0;
+            var score = 0;
+            var Player;
+            document.body.style.backgroundImage = "url('background.jpg')";
+            createEntity = function (type, id, x, spdX, y, spdY, width, height, color) {
+                var self = {
+                    type: type,
+                    id: id,
+                    x: x,
+                    spdX: spdX,
+                    y: y,
+                    spdY: spdY,
+                    width: width,
+                    height: height,
+                    color: color
+                };
+                return self;
+            };
+            createPlayer = function () {
+                var self = createEntity('player', 'myId', 50, 20, 40, 20, 40, 40, 'green');
+
+                self.hp = 20;
+                self.atkspd = 3;
+                self.aimAngle = 0;
+                self.alt = 0;
+                self.attackCounter = 0;
+                self.pressingRight = false;
+                self.pressingDown = false;
+                self.pressingLeft = false;
+                self.pressingTop = false;
+                Player = self;
+
+            };
+            make_base = function ()
+            {
+                base_image_player = new Image();
+                base_image_player.src = 'abdo.png';
+                base_image_player.onload = function () {
+                    ctx.drawImage(base_image_player, Player.x, Player.y, Player.width - 2, Player.height - 2);
+                };
+            };
+            make_base_upgrade_great = function (thing)
+            {
+                base_image_great = new Image();
+                base_image_great.src = 'greatburger.png';
+                base_image_great.onload = function () {
+                    ctx.drawImage(base_image_great, thing.x, thing.y, thing.width, thing.height);
+                };
+            };
+            make_base_upgrade_weak = function (thing)
+            {
+                base_image_weak = new Image();
+                base_image_weak.src = 'burger.png';
+                base_image_weak.onload = function () {
+                    ctx.drawImage(base_image_weak, thing.x, thing.y, thing.width, thing.height);
+                };
+            };
+            make_base_enemy_weak = function (thing)
+            {
+                base_image_enemy_weak = new Image();
+                base_image_enemy_weak.src = 'weakmonster.png';
+                base_image_enemy_weak.onload = function () {
+                    ctx.drawImage(base_image_enemy_weak, thing.x, thing.y, thing.width, thing.height);
+                };
+            };
+            make_base_enemy_strong = function (thing)
+            {
+                base_image_enemy_strong = new Image();
+                base_image_enemy_strong.src = 'strongmonster.png';
+                base_image_enemy_strong.onload = function () {
+                    ctx.drawImage(base_image_enemy_strong, thing.x, thing.y, thing.width, thing.height);
+                };
+            };
+            make_base_bullet = function (thing)
+            {
+                base_image_bullet = new Image();
+                base_image_bullet.src = 'redbullet.png';
+                base_image_bullet.onload = function () {
+                    ctx.drawImage(base_image_bullet, thing.x, thing.y, thing.width, thing.height);
+                };
+            };
+
+            var EnemyList = {};
+            var upgradeList = {};
+            var bulletList = {};
+//            getDistanceBetweenEntity = function (Entity1, Entity2) {
+//                var vx = Entity1.x - Entity2.x;
+//                var vy = Entity1.y - Entity2.y;
+//                return Math.sqrt(vx * vx + vy * vy);
+//            }
+
+            testCollisionRectRect = function (rect1, rect2) {
+                return rect1.x <= rect2.x + rect2.width
+                        && rect2.x <= rect1.x + rect1.width
+                        && rect1.y <= rect2.y + rect2.height
+                        && rect2.y <= rect1.y + rect1.height;
+            };
+            testCollisionEntity = function (entity1, entity2) {
+                var rect1 = {
+                    x: entity1.x - entity1.width / 2,
+                    y: entity1.y - entity1.height / 2,
+                    width: entity1.width,
+                    height: entity1.height
+                };
+                var rect2 = {
+                    x: entity2.x - entity2.width / 2,
+                    y: entity2.y - entity2.height / 2,
+                    width: entity2.width,
+                    height: entity2.height
+                };
+                return testCollisionRectRect(rect1, rect2);
+            };
+            enemy = function (id, x, spdX, y, spdY, width, height) {
+                var self = createEntity('enemy', id, x, spdX, y, spdY, width, height, 'red');
+
+                self.aimAngle = 0;
+                self.atkspd = 1;
+                self.attackCounter = 0;
+                EnemyList[id] = self;
+            };
+            randomlyGenerateEnemy = function () {
+                var x = Math.random() * Width;
+                var y = Math.random() * Height;
+                var height = 20;
+                var width = 20;
+                var id = Math.random();
+                var spdX = 5 + Math.random() * 5;
+                var spdY = 5 + Math.random() * 5;
+                enemy(id, x, spdX, y, spdY, width, height);
+            };
+            upgrade = function (id, x, spdX, y, spdY, width, height, category, color) {
+                var self = createEntity('upgrade', id, x, spdX, y, spdY, width, height, color);
+                if (self.id < 0.3) {
+                    self.category = 'great';
+                } else {
+                    self.category = 'weak';
+                }
+//                var newUpgrade = {
+//                    
+//                    category: category
+//                };
+                upgradeList[id] = self;
+            };
+            randomlyGenerateUpgrade = function () {
+                var x = Math.random() * Width;
+                var y = Math.random() * Height;
+                var height = 30;
+                var width = 40;
+                var id = Math.random();
+                var spdX = 0;
+                var spdY = 0;
+                var color = 'orange';
+                var category;
+//                if (Math.random() < 0.5) {
+//                    var category = 'great';
+//                } else if (Math.random() >= 0.5) {
+//                    var category = 'weak';
+//                }
+
+                upgrade(id, x, spdX, y, spdY, width, height, category, color);
+            };
+            bullet = function (id, x, spdX, y, spdY, width, height, color) {
+                var self = createEntity('bullet', id, x, spdX, y, spdY, width, height, color);
+                self.timer = 0 ;
+                bulletList[id] = self;
+            };
+            randomlyGenerateBullet = function (actor, overWriteAngle) {
+                var x = actor.x;
+                var y = actor.y;
+                var height = 10;
+                var width = 10;
+                var color = 'black';
+                var id = Math.random();
+                var angle = actor.aimAngle;
+                if (overWriteAngle !== undefined) {
+                    angle = overWriteAngle;
+                }
+                var spdX = Math.cos(angle / 180 * Math.PI) * 30;
+                var spdY = Math.sin(angle / 180 * Math.PI) * 30;
+                bullet(id, x, spdX, y, spdY, width, height,color);
+            };
+            randomlyGenerateBullet2 = function (actor, overWriteAngle) {
+                var x = actor.x;
+                var y = actor.y;
+                var height = 10;
+                var width = 10;
+                var id = Math.random();
+                var angle = actor.aimAngle;
+                if (overWriteAngle !== undefined) {
+                    angle = overWriteAngle;
+                }
+                var spdX = Math.cos(angle / 180 * Math.PI) * 10;
+                var spdY = Math.sin(angle / 180 * Math.PI) * 10;
+                bullet(id, x, spdX, y, spdY, width, height);
+            };
+            document.onmousemove = function (mouse) {
+
+                var mouseX = mouse.clientX - document.getElementById('ctx').getBoundingClientRect().left;
+                var mouseY = mouse.clientY - document.getElementById('ctx').getBoundingClientRect().top;
+
+                mouseX -= Player.x;
+                mouseY -= Player.y;
+
+                Player.aimAngle = Math.atan2(mouseY, mouseX) / Math.PI * 180;
+
+
+            };
+            document.onclick = function (mouse) {
+                performAttack(Player);
+            };
+            performAttack = function (actor) {
+                if (actor.attackCounter > 25) {
+                    randomlyGenerateBullet(actor);
+                    actor.attackCounter = 0;
+                }
+            };
+            document.oncontextmenu = function (mouse) {
+                performSpecialAttack(Player);
+                mouse.preventDefault();
+            };
+            performSpecialAttack = function (actor) {
+                if (actor.attackCounter > 50) {
+                    randomlyGenerateBullet(actor, actor.aimAngle - 5);
+                    randomlyGenerateBullet(actor, actor.aimAngle);
+                    randomlyGenerateBullet(actor, actor.aimAngle + 5);
+                    actor.attackCounter = 0;
+                }
+            };
+            document.onkeydown = function (event) {
+                if (event.keyCode === 68)
+                    Player.pressingRight = true;
+                if (event.keyCode === 83)
+                    Player.pressingDown = true;
+                if (event.keyCode === 65)
+                    Player.pressingLeft = true;
+                if (event.keyCode === 87)
+                    Player.pressingTop = true;
+                if (event.keyCode === 70) {
+                    var min = 10;
+                    if (Player.alt >= min) {
+                        var angle = 0;
+                        while (angle < 360) {
+                            randomlyGenerateBullet2(Player, angle);
+                            angle++;
+                        }
+
+                        Player.alt -= min;
+                        if (Player.alt < 0) {
+                            Player.alt = 0;
+                        }
+                    }
+
+                    event.preventDefault();
+                }
+            };
+            document.onkeyup = function (event) {
+                if (event.keyCode === 68)
+                    Player.pressingRight = false;
+                if (event.keyCode === 83)
+                    Player.pressingDown = false;
+                if (event.keyCode === 65)
+                    Player.pressingLeft = false;
+                if (event.keyCode === 87)
+                    Player.pressingTop = false;
+            };
+            updateEntity = function (Something) {
+                updateEntityPostion(Something);
+                drawEntity(Something);
+            };
+            updateEntityPostion = function (Something) {
+                if (Something.type === 'player') {
+                    if (Player.pressingRight)
+                        Player.x += Player.spdX;
+                    if (Player.pressingLeft)
+                        Player.x -= Player.spdX;
+                    if (Player.pressingDown)
+                        Player.y += Player.spdY;
+                    if (Player.pressingTop)
+                        Player.y -= Player.spdY;
+                    //is the Position valid !!
+                    if (Player.x < Player.width / 2)
+                        Player.x = Player.width / 2;
+                    if (Player.x > Width - Player.width / 2)
+                        Player.x = Width - Player.width / 2;
+                    if (Player.y < Player.height / 2)
+                        Player.y = Player.height / 2;
+                    if (Player.y > Height - Player.height / 2)
+                        Player.y = Height - Player.height / 2;
+                } else {
+                    Something.x += Something.spdX;
+                    Something.y += Something.spdY;
+                    if (Something.x < 0 || Something.x > Width) {
+                        Something.spdX = -Something.spdX;
+                    }
+
+                    if (Something.y < 0 || Something.y > Height) {
+                        Something.spdY = -Something.spdY;
+                    }
+                }
+
+            };
+            drawEntity = function (Something) {
+                if (Something.type === 'player') {
+                    ctx.save();
+                    make_base();
+                    ctx.restore();
+                }
+                else if (Something.type === 'upgrade') {
+                    if (Something.category === 'great') {
+                        ctx.save();
+                        make_base_upgrade_great(Something);
+                        ctx.restore();
+                    }
+                    else if (Something.category === 'weak') {
+                        ctx.save();
+                        make_base_upgrade_weak(Something);
+                        ctx.restore();
+                    }
+                }
+                else if (Something.type === 'enemy') {
+                    if (Something.id >= 0.3) {
+                        ctx.save();
+                        make_base_enemy_weak(Something);
+                        ctx.restore();
+                    } else if (Something.id < 0.3) {
+                        ctx.save();
+                        make_base_enemy_strong(Something);
+                        ctx.restore();
+                    }
+                } else if(Something.type === 'bullet') {
+                    ctx.save();
+                    make_base_bullet(Something);
+                    ctx.restore();
+                }
+            };
+
+
+
+
+            update = function () {
+                ctx.clearRect(0, 0, Width, Height);
+                frameCount++;
+                score++;
+                if (frameCount % 100 === 0) {
+                    randomlyGenerateEnemy();
+                }
+                if (frameCount % 75 === 0) {
+                    randomlyGenerateUpgrade();
+                }
+                Player.attackCounter += Player.atkspd;
+                for (var key in bulletList) {
+                    updateEntity(bulletList[key]);
+                    bulletList[key].timer++;
+                    var toRemove = false;
+                    if (bulletList[key].timer > 20) {
+                        toRemove = true;
+                    }
+
+                    for (var key2 in EnemyList) {
+                        var test = testCollisionEntity(bulletList[key], EnemyList[key2]);
+                        if (test) {
+                            toRemove = true;
+                            delete EnemyList[key2];
+                            break;
+                        }
+                    }
+                    if (toRemove) {
+                        delete bulletList[key];
+                    }
+                }
+
+
+
+
+                for (var key in upgradeList) {
+                    updateEntity(upgradeList[key]);
+                    var test = testCollisionEntity(upgradeList[key], Player);
+                    if (test) {
+                        if (upgradeList[key].category === 'great') {
+                            Player.alt += 2;
+                            Player.atkspd +=3;
+                        } else if (upgradeList[key].category === 'weak') {
+                            Player.hp += 5;
+                        }
+//                        if (upgradeList[key].category === 'score') {
+//                            score += 1000;
+//                            Player.hp += 2;
+//                        }
+//                        if (upgradeList[key].category === 'atkspd') {
+//                            Player.atkspd += 3;
+//                            Player.alt += 2;
+//                        }
+//                        if (upgradeList[key].category === 'playerspd') {
+//                            Player.spdX += 3;
+//                            Player.spdY += 3;
+//                        }
+                        delete upgradeList[key];
+                    }
+                }
+
+
+
+
+                for (var key in EnemyList) {
+                    updateEntity(EnemyList[key]);
+                    var test = testCollisionEntity(EnemyList[key], Player);
+                    if (test) {
+                        if (EnemyList[key].id >= 0.3) {
+                            Player.hp--;
+                        } else if (EnemyList[key].id < 0.3) {
+                            Player.hp -= 10;
+                        }
+                    }
+                    if (Player.hp < 0) {
+                        var time = Date.now() - timeTheGameStarted;
+//                        console.log('You lost' + 'you servived in ' + (time / 1000) + ' s');
+                        alert("Game Over");
+                        startNewGame();
+                    }
+                }
+
+                updateEntity(Player);
+                
+                
+                
+                ctx.save();
+                ctx.fillStyle = 'red';
+                ctx.fillText(Player.hp + ' hp', 0, 30);
+                ctx.fillText("Score: " + score, 100, 30);
+                ctx.fillText("Alt: " + Player.alt, 350, 30);
+                ctx.restore();
+                //            updateEntity(Enemy);
+                //            updateEntity(Enemy2);
+            }
+            ;
+            startNewGame = function () {
+                Player.hp = 20;
+                Player.alt = 0;
+                timeTheGameStarted = Date.now();
+                frameCount = 0;
+                EnemyList = {};
+                upgradeList = {};
+                bulletList = {};
+                score = 0;
+                randomlyGenerateEnemy();
+                randomlyGenerateEnemy();
+                randomlyGenerateEnemy();
+            };
+            createPlayer();
+            startNewGame();
+            setInterval(update, 50);
+
+        </script>     
+        <p>
+            This game done by :<br>
+            1)Muhammad Nagi ElAgami<br>
+            2)Ahmed Ashraf Elsalanty<br>
+            3)Muhammad Ahmed Nasef<br>
+            4)Muhammad Sameh Atia<br>
+            5)Mariam Ahmed<br>
+        </p>
+    </body>
+</html>
